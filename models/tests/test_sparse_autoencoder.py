@@ -12,11 +12,11 @@ class SparseAutoencoderTests(unittest.TestCase):
         model = SparseAutoencoder(535)
         linears = [m for m in model.encoder if isinstance(m, torch.nn.Linear)]
         self.assertEqual([(l.in_features, l.out_features) for l in linears],
-                         [(535, 128), (128, 32)])
-        self.assertEqual(tuple(model.decoder_weight.shape), (535, 32))
+                         [(535, 256), (256, 64)])
+        self.assertEqual(tuple(model.decoder_weight.shape), (535, 64))
         reconstruction, activations = model(torch.randn(4, 535))
         self.assertEqual(tuple(reconstruction.shape), (4, 535))
-        self.assertEqual(tuple(activations.shape), (4, 32))
+        self.assertEqual(tuple(activations.shape), (4, 64))
         self.assertTrue((activations >= 0).all())
 
     def test_l1_is_sample_average_not_feature_average(self):
@@ -46,7 +46,7 @@ class SparseAutoencoderTests(unittest.TestCase):
         restored = SparseAutoencoder(10)
         restored.load_state_dict(model.state_dict())
         expected = torch.linspace(0, 1, 10).expand(2, -1)
-        torch.testing.assert_close(restored.decode(torch.zeros(2, 32)), expected)
+        torch.testing.assert_close(restored.decode(torch.zeros(2, restored.hidden_dim)), expected)
         self.assertFalse(restored.mean_spectrum.requires_grad)
 
     def test_optimization_reduces_held_out_reconstruction_error(self):

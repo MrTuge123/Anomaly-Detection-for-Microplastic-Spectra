@@ -13,9 +13,9 @@ class SparseAutoencoder(nn.Module):
     Architecture (defaults shown for 535-channel spectra)::
 
         spectrum (535) - training mean
-        -> Linear(535, 128) -> ReLU
-        -> Linear(128, 32) -> ReLU        # sparse code, L1 penalty here
-        -> Linear decoder (32 -> 535) + training mean
+        -> Linear(535, 256) -> ReLU
+        -> Linear(256, 64) -> ReLU        # sparse code, L1 penalty here
+        -> Linear decoder (64 -> 535) + training mean
 
     Inputs are floating-point batches of preprocessed absorbance spectra with
     shape ``(batch_size, input_dim)``. Fit preprocessing and ``mean_spectrum``
@@ -29,10 +29,10 @@ class SparseAutoencoder(nn.Module):
     def __init__(
         self,
         input_dim: int,
-        hidden_dim: int = 32,
+        hidden_dim: int = 64,
         l1_lambda: float = 1e-3,
         mean_spectrum: Tensor | None = None,
-        intermediate_dim: int = 128,
+        intermediate_dim: int = 256,
     ) -> None:
         super().__init__()
         for name, value in (
