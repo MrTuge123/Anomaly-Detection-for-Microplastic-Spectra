@@ -10,6 +10,13 @@ from torch.nn import functional as F
 class SparseAutoencoder(nn.Module):
     """Reconstruct spectra using nonnegative, L1-penalized feature activations.
 
+    Architecture (defaults shown for 535-channel spectra)::
+
+        spectrum (535) - training mean
+        -> Linear(535, 128) -> ReLU
+        -> Linear(128, 32) -> ReLU        # sparse code, L1 penalty here
+        -> Linear decoder (32 -> 535) + training mean
+
     Inputs are floating-point batches of preprocessed absorbance spectra with
     shape ``(batch_size, input_dim)``. Fit preprocessing and ``mean_spectrum``
     using training spectra only. The mean is a saved buffer, not a parameter.
@@ -25,9 +32,14 @@ class SparseAutoencoder(nn.Module):
         hidden_dim: int = 32,
         l1_lambda: float = 1e-3,
         mean_spectrum: Tensor | None = None,
+        intermediate_dim: int = 128,
     ) -> None:
         super().__init__()
-        for name, value in (("input_dim", input_dim), ("hidden_dim", hidden_dim)):
+        for name, value in (
+            ("input_dim", input_dim),
+            ("hidden_dim", hidden_dim),
+            ("intermediate_dim", intermediate_dim),
+        ):
             if isinstance(value, bool) or not isinstance(value, int) or value <= 0:
                 raise ValueError(f"{name} must be a positive integer")
         if not math.isfinite(l1_lambda) or l1_lambda < 0:
@@ -35,11 +47,19 @@ class SparseAutoencoder(nn.Module):
 
         self.input_dim = input_dim
         self.hidden_dim = hidden_dim
+        self.intermediate_dim = intermediate_dim
         self.l1_lambda = float(l1_lambda)
-        self.encoder = nn.Linear(input_dim, hidden_dim)
+        self.encoder = nn.Sequential(
+            nn.Linear(input_dim, intermediate_dim),
+            nn.ReLU(),
+            nn.Linear(intermediate_dim, hidden_dim),
+            nn.ReLU(),
+        )
         self._decoder_weight = nn.Parameter(torch.empty(input_dim, hidden_dim))
         nn.init.xavier_uniform_(self._decoder_weight)
-        nn.init.zeros_(self.encoder.bias)
+        for layer in self.encoder:
+            if isinstance(layer, nn.Linear):
+                nn.init.zeros_(layer.bias)
         self.register_buffer("mean_spectrum", torch.zeros(input_dim))
         if mean_spectrum is not None:
             self.set_mean_spectrum(mean_spectrum)
@@ -67,9 +87,12 @@ class SparseAutoencoder(nn.Module):
             raise ValueError(f"{name} must have shape (nonempty batch_size, {width})")
 
     def encode(self, spectra: Tensor) -> Tensor:
-        """Return nonnegative activations without fixing their active count."""
+        """Return nonnegative sparse activations, shape ``(batch, hidden_dim)``.
+
+        Centers on the training mean, then applies the two-layer ReLU encoder.
+        """
         self._check_batch(spectra, self.input_dim, "spectra")
-        return F.relu(self.encoder(spectra - self.mean_spectrum))
+        return self.encoder(spectra - self.mean_spectrum)
 
     def decode(self, activations: Tensor) -> Tensor:
         """Combine spectral features and restore the fixed training mean."""

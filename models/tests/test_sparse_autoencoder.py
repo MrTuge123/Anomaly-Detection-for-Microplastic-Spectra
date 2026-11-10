@@ -4,10 +4,21 @@ import unittest
 
 import torch
 
-from experiments.Models import SparseAutoencoder
+from models import SparseAutoencoder
 
 
 class SparseAutoencoderTests(unittest.TestCase):
+    def test_architecture_shapes(self):
+        model = SparseAutoencoder(535)
+        linears = [m for m in model.encoder if isinstance(m, torch.nn.Linear)]
+        self.assertEqual([(l.in_features, l.out_features) for l in linears],
+                         [(535, 128), (128, 32)])
+        self.assertEqual(tuple(model.decoder_weight.shape), (535, 32))
+        reconstruction, activations = model(torch.randn(4, 535))
+        self.assertEqual(tuple(reconstruction.shape), (4, 535))
+        self.assertEqual(tuple(activations.shape), (4, 32))
+        self.assertTrue((activations >= 0).all())
+
     def test_l1_is_sample_average_not_feature_average(self):
         model = SparseAutoencoder(3, hidden_dim=2, l1_lambda=0.1)
         spectra = torch.zeros(2, 3)
