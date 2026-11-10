@@ -1,0 +1,21 @@
+# Scientific computing and spectral preprocessing
+numpy
+scipy
+pandas
+
+# Anomaly detection, dimensionality reduction, and model evaluation
+scikit-learn
+
+# Data visualization
+matplotlib
+seaborn
+
+# Interactive notebooks
+jupyterlab
+ipykernel
+
+# Read Excel datasets
+openpyxl
+
+# Sparse autoencoder models
+torch
